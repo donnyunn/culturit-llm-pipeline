@@ -1,0 +1,981 @@
+﻿STATUS,QUESTION,RESPONSE,TABLE,,,,
+검토완료,최근 입사자 누구 있어?,"SELECT mm.email, ml.value, omr.org_code, 
+(SELECT tmp.value FROM org_lang tmp WHERE tmp.org_code = omr.org_code AND tmp.type = 'T01' AND tmp.lang = {lang}) AS org_name, mm.ent_ymd 
+FROM member_master AS mm
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+INNER JOIN org_member_rel AS omr 
+ON ml.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' AND omr.del_yn = 'N'
+WHERE mm.ent_ymd >= DATE_FORMAT(DATE_ADD(NOW(), INTERVAL -1 MONTH), '%Y%m%d')",member_master,member_lang,org_member_rel,,
+검토완료,개발팀 소속 직원의 이름과 이메일을 알려줘.,"SELECT ml.value AS name, mm.email 
+FROM org_lang AS ol
+INNER JOIN org_member_rel AS omr
+ON ol.org_code = omr.org_code 
+INNER JOIN member_master AS mm 
+ON mm.mem_id = omr.mem_id AND mm.del_yn = 'N' AND mm.status_code = 'CMM0010001' 
+INNER JOIN member_lang AS ml 
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE ol.value = '개발팀' AND ol.type = 'T01' AND ol.lang = {lang}",member_master,member_lang,org_lang,org_member_rel,
+검토완료,개발팀(org_code : OC001) 소속 직원의 이름과 이메일을 알려줘.,"SELECT ml.value AS name, mm.email 
+FROM org_master AS om
+INNER JOIN org_member_rel AS omr
+ON om.org_code = omr.org_code 
+INNER JOIN member_master AS mm 
+ON mm.mem_id = omr.mem_id AND mm.del_yn = 'N' AND mm.status_code = 'CMM0010001' 
+INNER JOIN member_lang AS ml 
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE om.org_code = 'OC001'",member_master,member_lang,org_member_rel,org_master,
+검토완료,김민준의 직책이 뭐야?,"SELECT cm.code AS jc_code, cl.value AS jc_name
+FROM member_lang AS ml 
+INNER JOIN org_member_rel AS omr 
+ON ml.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+INNER JOIN code_master AS cm
+ON omr.jc_code = cm.code AND cm.grp_code = 'GMM002'
+INNER JOIN code_lang AS cl 
+ON cm.code = cl.code_lng_id AND cl.type = 'T01' AND cl.lang = {lang}
+WHERE ml.value = '김민준' AND ml.type = 'T01' AND ml.lang = {lang}",member_lang,org_member_rel,code_master,code_lang,
+검토완료,김민준(mem_id : MEM00001)의 직책이 뭐야?,"SELECT cm.code AS jc_code, cl.value AS jc_name 
+FROM member_master AS mm 
+INNER JOIN org_member_rel AS omr 
+ON mm.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+INNER JOIN code_master AS cm
+ON omr.jc_code = cm.code AND cm.grp_code = 'GMM002'
+INNER JOIN code_lang AS cl 
+ON cm.code = cl.code_lng_id AND cl.type = 'T01' AND cl.lang = {lang}
+WHERE mm.mem_id = 'MEM00001'",member_master,org_member_rel,code_master,code_lang,
+검토완료,박서준이 올린 결재 문서 중에 반려된 것들을 찾아줘.,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN member_lang AS ml
+ON am.draft_mem_id = ml.mem_id AND ml.value = '박서준' AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE am.status_code IN ('CGV0010007', 'CGV0010008')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC 
+LIMIT {offset}, {count}",appr_master,member_lang,appr_proc,,
+검토완료,박서준(mem_id : MEM00002)이 올린 결재 문서 중에 반려된 것들을 찾아줘.,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN member_master AS mm
+ON am.draft_mem_id = mm.mem_id AND mm.mem_id = 'MEM00002' 
+WHERE am.status_code IN ('CGV0010007', 'CGV0010008')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC 
+LIMIT {offset}, {count}",appr_master,member_master,appr_proc,,
+검토완료,인사팀에 속한 모든 직원의 이름과 이메일 주소를 알려줘.,"SELECT ml.value AS name, mm.email 
+FROM org_lang AS ol
+INNER JOIN org_member_rel AS omr
+ON ol.org_code = omr.org_code 
+INNER JOIN member_master AS mm 
+ON mm.mem_id = omr.mem_id AND mm.del_yn = 'N' AND mm.status_code = 'CMM0010001' 
+INNER JOIN member_lang AS ml 
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE ol.value = '인사팀' AND ol.type = 'T01' AND ol.lang = {lang}",member_master,member_lang,org_lang,org_member_rel,
+검토완료,인사팀(org_code : OC002)에 속한 모든 직원의 이름과 이메일 주소를 알려줘.,"SELECT ml.value AS name, mm.email 
+FROM org_master AS om
+INNER JOIN org_member_rel AS omr
+ON om.org_code = omr.org_code 
+INNER JOIN member_master AS mm 
+ON mm.mem_id = omr.mem_id AND mm.del_yn = 'N' AND mm.status_code = 'CMM0010001' 
+INNER JOIN member_lang AS ml 
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE om.org_code = 'OC002'",member_master,member_lang,org_member_rel,org_master,
+검토완료,이서연이라는 직원의 직책은 뭐야?,"SELECT cl.value AS jc_name
+FROM member_lang AS ml 
+INNER JOIN org_member_rel AS omr 
+ON ml.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+INNER JOIN code_master AS cm
+ON omr.jc_code = cm.code AND cm.grp_code = 'GMM002'
+INNER JOIN code_lang AS cl 
+ON cm.code = cl.code_lng_id AND cl.type = 'T01' AND cl.lang = {lang}
+WHERE ml.value = '이서연' AND ml.type = 'T01' AND ml.lang = {lang}",member_lang,org_member_rel,code_master,code_lang,
+검토완료,이서연(mem_id : MEM00003)이라는 직원의 직책은 뭐야?,"SELECT cl.value 
+FROM member_master AS mm 
+INNER JOIN org_member_rel AS omr 
+ON mm.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+INNER JOIN code_master AS cm
+ON omr.jc_code = cm.code AND cm.grp_code = 'GMM002'
+INNER JOIN code_lang AS cl 
+ON cm.code = cl.code_lng_id AND cl.type = 'T01' AND cl.lang = {lang}
+WHERE mm.mem_id = 'MEM0003'",member_master,org_member_rel,code_master,code_lang,
+검토완료,박지훈이 기안한 결재 문서 중에 아직 처리 중인 문서들을 전부 보여줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN member_lang AS ml
+ON am.draft_mem_id = ml.mem_id AND ml.value = '박지훈' AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.proc_type_code IN ('CGV0030001', 'CGV0030002', 'CGV0030003', 'CGV0030004', 'CGV0030007')
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC",appr_master,member_lang,appr_proc,,
+검토완료,박지훈(mem_id : MEM00009)이 기안한 결재 문서 중에 아직 처리 중인 문서들을 전부 보여줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN member_master AS mm
+ON am.draft_mem_id = mm.mem_id AND mm.mem_id = 'MEM00009'
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.proc_type_code IN ('CGV0030001', 'CGV0030002', 'CGV0030003', 'CGV0030004', 'CGV0030007')
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC",appr_master,member_master,appr_proc,,
+검토완료,저번달에 완료한 지출결의서 뽑아줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN appr_docs_lang AS adl
+ON am.adocs_code = adl.adocs_lng_id AND adl.value = '지출결의서' AND adl.type = 'T01' AND adl.lang = {lang}
+WHERE am.status_code IN ('CGV0010005', 'CGV0010006')
+AND DATE_FORMAT(am.fnl_date, '%Y%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y%m')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC",appr_master,appr_docs_lang,appr_proc,,
+검토완료,저번달에 완료한 지출결의서(adocs_code : ADOCS0001) 뽑아줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN appr_docs_master AS adm
+ON am.adocs_code = adm.adocs_code AND adm.adocs_code = 'ADOCS0001'
+WHERE am.status_code IN ('CGV0010005', 'CGV0010006')
+AND DATE_FORMAT(am.fnl_date, '%Y%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y%m')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC",appr_master,appr_docs_master,appr_proc,,
+검토완료,대기중인 문서 요약해줘,"SELECT am.appr_id, am.title, am.editor_body, am.drafter_mem_id, 
+(SELECT tmp.value
+FROM member_lang AS tmp
+WHERE tmp.mem_id = am.drafter_mem_id
+AND tmp.type = 'T01' 
+AND tmp.lang = {lang}
+) AS drafter_name, am.drft_date
+FROM appr_master AS am
+LEFT JOIN appr_proc AS ap 
+ON am.appr_id = ap.appr_id AND ap.proc_status_code = 'CGV0040002' 
+AND 
+(
+(ap.proc_div_code = 'CGV0020001' AND ap.member_id = {auth_mem_id})
+OR
+(ap.proc_div_code = 'CGV0020002' AND ap.org_code = {auth_org_code})
+)
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+ORDER BY am.date_created DESC",appr_master,member_lang,appr_proc,,
+검토완료,내가 결재해야할 문서 뽑아줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+LEFT JOIN appr_proc AS ap 
+ON am.appr_id = ap.appr_id AND ap.proc_status_code = 'CGV0040002' 
+AND 
+(
+(ap.proc_div_code = 'CGV0020001' AND ap.member_id = {auth_mem_id})
+OR
+(ap.proc_div_code = 'CGV0020002' AND ap.org_code = {auth_org_code})
+)
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+ORDER BY am.date_created DESC",appr_master,appr_proc,,,
+검토완료,현재 휴직 중인 모든 직원을 찾아줘,"SELECT mm.mem_id, ml.value AS name, ml.emp_no, mm.email
+FROM member_master AS mm 
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE mm.status_code = 'CMM0010002'
+AND mm.del_yn = 'N'",member_master,member_lang,,,
+검토완료,내가 결재해야 할 문서가 뭐가 있는지 알려줄래?,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+LEFT JOIN appr_proc AS ap 
+ON am.appr_id = ap.appr_id AND ap.proc_status_code = 'CGV0040002' 
+AND 
+(
+(ap.proc_div_code = 'CGV0020001' AND ap.member_id = {auth_mem_id})
+OR
+(ap.proc_div_code = 'CGV0020002' AND ap.org_code = {auth_org_code})
+)
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+ORDER BY am.date_created DESC",appr_master,appr_proc,appr_master,,
+검토완료,경영지원본부 하위 부서 목록을 보여줘,"ol.value AS org_name
+FROM org_master AS om
+INNER JOIN org_lang AS ol
+ON om.org_code = ol.org_code AND ol.type = 'T01' AND ol.lang = {lang}
+WHERE om.up_org_code = 
+(
+SELECT tmp.org_code
+FROM org_lang AS tmp
+WHERE tmp.value = '경영지원본부' AND tmp.type = 'T01' AND tmp.lang = {lang}
+)
+AND om.del_yn = 'N'
+AND om.use_yn = 'Y'
+",org_master,org_lang,,,
+검토완료,경영지원본부(org_code : ORG0099) 하위 부서 목록을 보여줘,"SELECT om.org_code, 
+ol.value AS org_name
+FROM org_master AS om
+INNER JOIN org_lang AS ol
+ON om.org_code = ol.org_code AND ol.type = 'T01' AND ol.lang = {lang}
+WHERE om.up_org_code = 'ORG0099'
+AND om.del_yn = 'N'
+AND om.use_yn = 'Y'",org_master,org_lang,,,
+검토완료,2024년에 입사한 직원들은 총 몇 명이야?,"SELECT COUNT(*) AS total_count
+FROM member_master AS mm
+WHERE mm.enter_date LIKE '2024%'",member_master,,,,
+검토완료,대외비 결재양식은 어떤 것들이 있어?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.src_type = 'PRV'
+AND adm.del_yn = 'N'
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN'
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,,,
+검토완료,각 부서별로 몇 명의 직원이 있는지 계산해줘.,"SELECT om.org_code, COUNT(omr.mem_id) AS member_count,
+(
+SELECT tmp.value
+FROM org_lang tmp
+WHERE tmp.org_code = om.org_code
+AND tmp.type = 'T01'
+AND tmp.lang = {lang}
+) AS org_name
+FROM org_master AS om
+INNER JOIN org_member_rel AS omr 
+ON om.org_code = omr.org_code AND omr.use_yn = 'Y' 
+INNER JOIN member_master AS mm 
+ON omr.mem_id = mm.mem_id AND mm.status_code = 'CMM0010001'
+WHERE om.org_type = 'D' AND om.use_yn = 'Y' AND om.del_yn = 'N' 
+GROUP BY om.org_code",org_master,org_lang,org_member_rel,member_master,
+검토완료,결재 완료 시에만 문서번호가 생성되는 결재 양식은 뭐가 있어?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.opt_no_type = 'CMPL'
+AND adm.del_yn = 'N'
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN' 
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,,,
+검토완료,생일이 오늘인 직원이 누구인지 찾아줘.,"SELECT mm.mem_id, mm.emp_no, ml.value AS name
+FROM member_master mm
+INNER JOIN member_lang ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE mm.birth_ymd = DATE_FORMAT(NOW(), '%Y%m%d') AND mm.status_code = 'CMM0010001'",member_master,member_lang,,,
+검토완료,최근 한 달 동안 가장 많은 결재를 처리한 사람은 누구야?,"SELECT mm.mem_id, mm.emp_no, ml.value AS name, sub_tb.fnl_count
+FROM member_master AS mm
+INNER JOIN (
+SELECT am.fnl_mem_id, COUNT(*) AS fnl_count
+FROM appr_master AS am
+WHERE am.fnl_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+AND am.status_code IN ('CGV0010005', 'CGV0010006')
+GROUP BY am.fnl_mem_id
+ORDER BY am.fnl_count DESC
+LIMIT 0, 1
+) AS sub_tb
+ON mm.mem_id = sub_tb.fnl_mem_id
+INNER JOIN member_lang AS ml
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}",appr_master,member_master,member_lang,,
+검토완료,지출증빙 단어가 제목에 포함된 문서를 모두 검색해줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+WHERE am.title LIKE '%지출증빙%'
+AND am.status_code IN ('CGV0010005', 'CGV0010006')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.fnl_date DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,,,
+검토완료,지출증빙 단어가 제목에 포함된 진행중인 문서를 모두 검색해줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+WHERE am.title LIKE '%지출증빙%'
+AND am.status_code IN ('CGV0010003', 'CGV0010004')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.fnl_date DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,,,
+검토완료,팀장 직책을 맡고 있는 모든 사람들의 이름을 알려줘.,"SELECT mm.mem_id, ml.value AS name
+FROM code_master AS cm
+INNER JOIN code_lang AS cl
+ON cm.code = cl.code_lng_id AND cl.type = 'T01' AND cl.value = '팀장'
+INNER JOIN org_member_rel AS omr
+ON omr.jc_code = cm.code AND omr.use_yn = 'Y'
+INNER JOIN member_master AS mm
+ON mm.mem_id = omr.mem_id AND mm.status_code = 'CMM0010001'
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE cm.grp_code = 'GMM002' AND cm.del_yn = 'N'",code_master,code_lang,org_member_rel,member_master,member_lang
+검토완료,팀장(jc_code : JC0001) 직책을 맡고 있는 모든 사람들의 이름을 알려줘.,"SELECT mm.mem_id, ml.value AS name
+FROM code_master AS cm
+INNER JOIN org_member_rel AS omr
+ON omr.jc_code = cm.code AND omr.use_yn = 'Y'
+INNER JOIN member_master AS mm
+ON mm.mem_id = omr.mem_id AND mm.status_code = 'CMM0010001'
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE cm.grp_code = 'GMM002' AND cm.del_yn = 'N' AND cm.code = 'JC0001'",code_master,code_lang,org_member_rel,member_master,member_lang
+검토완료,김민준의 영문 이름과 영문 부서명을 알고 싶어,"SELECT ml.mem_id, 
+(
+SELECT tmp.value
+FROM member_lang tmp
+WHERE tmp.mem_id ml.mem_id
+AND tmp.type = 'T01'
+AND tmp.lang = 'en'
+) AS name,
+ol.value AS department_name
+FROM member_lang AS ml 
+INNER JOIN org_member_rel AS omr 
+ON ml.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+LEFT OUTER JOIN org_lang AS ol
+ON omr.org_code = ol.org_code AND ol.type ='T01' AND ol.lang = 'en'
+WHERE ml.value = '김민준' AND ml.type = 'T01' AND ml.lang = {lang}",member_lang,org_member_rel,org_lang,,
+검토완료,김민준(mem_id : MEM00001)의 영문 이름과 영문 부서명을 알고 싶어,"SELECT mm.mem_id, 
+(
+SELECT tmp.value
+FROM member_lang tmp
+WHERE tmp.mem_id ml.mem_id
+AND tmp.type = 'T01'
+AND tmp.lang = 'en'
+) AS name,
+ol.value AS department_name
+FROM member_master AS mm
+INNER JOIN org_member_rel AS omr 
+ON mm.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+LEFT OUTER JOIN org_lang AS ol
+ON omr.org_code = ol.org_code AND ol.type ='T01' AND ol.lang = 'en'
+WHERE mm.mem_id = 'MEM00001'",member_lang,org_member_rel,org_lang,member_master,
+검토완료,영업1팀에서만 사용할 수 있는 결재 양식은 무엇이 있나요?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.del_yn = 'N'
+AND adm.adocs_code IN 
+(
+SELECT tmp1.adocs_code
+FROM org_lang AS tmp1
+INNER JOIN appr_docs_target_rel AS tmp2
+ON tmp1.org_code = tmp2.rel_id AND tmp2.rel_type = 'O'
+WHERE tmp1.value = '영업1팀' AND tmp1.type = 'T01' AND tmp1.lang = {lang}
+)
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN' 
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,org_lang,appr_docs_target_rel,
+검토완료,영업1팀(org_code : ORG0008)에서만 사용할 수 있는 결재 양식은 무엇이 있나요?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.del_yn = 'N'
+AND adm.adocs_code IN 
+(
+SELECT tmp.adocs_code
+FROM appr_docs_target_rel AS tmp
+WHERE tmp.rel_id = 'ORG0008' AND tmp.rel_type = 'O'
+)
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN' 
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,appr_docs_target_rel,,
+검토완료,결재양식 알려줘,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.del_yn = 'N'
+AND adm.adocs_code IN 
+(
+SELECT tmp.adocs_code
+FROM appr_docs_target_rel AS tmp
+WHERE tmp.rel_id = {auth_mem_id} AND tmp.rel_type = 'M'
+OR tmp.rel_id = {auth_org_code} AND tmp.rel_type = 'O'
+)",appr_docs_master,appr_docs_lang,appr_docs_target_rel,,
+검토완료,최지우가 참조자로 지정된 모든 결재 문서의 제목과 기안자를 알려줘,"SELECT am.appr_id, am.title, 
+mm.mem_id, mm.emp_no, ml.email, ml.value AS name
+FROM appr_master AS am
+INNER JOIN member_master AS mm
+ON am.drft_mem_id = mm.mem_id
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004', 'CGV0010005', 'CGV0010006')
+AND EXISTS (
+SELECT 1
+FROM member_lang as tmp1
+INNER JOIN appr_proc as tmp2
+ON tmp2.appr_id = am.appr_id AND tmp1.mem_id = tmp2.mem_id AND tmp2.proc_type_code = 'CGV0030005'
+WHERE tmp1.value = '최지우' AND tmp1.type = 'T01' AND tmp1.lang = {lang}
+)
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,member_master,member_lang,
+검토완료,최지우(mem_id: MEM00018)가 참조자로 지정된 모든 결재 문서의 제목과 기안자를 알려줘,"SELECT am.appr_id, am.title, 
+mm.mem_id, mm.emp_no, ml.email, ml.value AS name
+FROM appr_master AS am
+INNER JOIN member_master AS mm
+ON am.drft_mem_id = mm.mem_id
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004', 'CGV0010005', 'CGV0010006')
+AND EXISTS (
+SELECT 1
+FROM appr_proc as tmp
+ON tmp.appr_id = am.appr_id AND tmp.mem_id = 'MEM00018' AND tmp2.proc_type_code = 'CGV0030005'
+)
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,member_master,member_lang,
+검토완료,아직 아무도 배정되지 않은 부서가 있는지 확인해줘.,"SELECT om.org_code, ol.value AS org_name
+FROM org_master AS om
+INNER JOIN org_lang AS ol
+ON om.org_code = ol.org_code AND ol.type = 'T01' AND ol.lang = {lang}
+WHERE om.org_code NOT IN (
+SELECT omr.org_code
+FROM org_member_rel AS omr
+WHERE omr.use_yn = 'N'
+GROUP BY omr.org_code
+)",org_master,org_lang,org_member_rel,,
+검토완료,결재가 반려된 문서를 보여줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+WHERE am.status_code IN ('CGV0010007', 'CGV0010008')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+AND ap.proc_type_code IN ('CGV0030001', 'CGV0030002', 'CGV0030003', 'CGV0030004', 'CGV0030007')
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,,,
+검토완료,인사팀에 속한 모든 직원의 이름과 이메일 주소를 알려줘.,"SELECT mm.mem_id, ml.value AS name, mm.email 
+FROM org_lang AS ol
+INNER JOIN org_member_rel AS omr
+ON ol.org_code = omr.org_code 
+INNER JOIN member_master AS mm 
+ON mm.mem_id = omr.mem_id AND mm.del_yn = 'N' AND mm.status_code = 'CMM0010001' 
+INNER JOIN member_lang AS ml 
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE ol.value = '인사팀' AND ol.type = 'T01' AND ol.lang = {lang}",member_master,member_lang,org_lang,org_member_rel,
+검토완료,인사팀(org_code : OC003)에 속한 모든 직원의 이름과 이메일 주소를 알려줘.,"SELECT mm.mem_id, ml.value AS name, mm.email 
+FROM org_master AS om
+INNER JOIN org_member_rel AS omr
+ON om.org_code = omr.org_code 
+INNER JOIN member_master AS mm 
+ON mm.mem_id = omr.mem_id AND mm.del_yn = 'N' AND mm.status_code = 'CMM0010001' 
+INNER JOIN member_lang AS ml 
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE om.org_code = 'OC003'",member_master,member_lang,org_member_rel,org_master,
+검토완료,이서연 직원의 직책은 뭐야?,"SELECT cm.code AS jc_code, cl.value AS jc_name
+FROM member_lang AS ml 
+INNER JOIN org_member_rel AS omr 
+ON ml.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+INNER JOIN code_master AS cm
+ON omr.jc_code = cm.code AND cm.grp_code = 'GMM002'
+INNER JOIN code_lang AS cl 
+ON cm.code = cl.code_lng_id AND cl.type = 'T01' AND cl.lang = {lang}
+WHERE ml.value = '이서연' AND ml.type = 'T01' AND ml.lang = {lang}",member_lang,org_member_rel,code_master,code_lang,
+검토완료,이서연(mem_id : MEM00009) 직원의 직책은 뭐야?,"SELECT cm.code AS jc_code, cl.value AS jc_name
+FROM member_master AS mm 
+INNER JOIN org_member_rel AS omr 
+ON mm.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+INNER JOIN code_master AS cm
+ON omr.jc_code = cm.code AND cm.grp_code = 'GMM002'
+INNER JOIN code_lang AS cl 
+ON cm.code = cl.code_lng_id AND cl.type = 'T01' AND cl.lang = {lang}
+WHERE mm.mem_id = 'MEM00009'",member_master,org_member_rel,code_master,code_lang,
+검토완료,박지훈이 기안한 결재 문서 중에 아직 처리 중인 문서들을 전부 보여줘.,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN member_lang AS ml
+ON am.draft_mem_id = ml.mem_id AND ml.value = '박지훈' AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC 
+LIMIT {offset}, {count}",appr_master,member_lang,appr_proc,,
+검토완료,박지훈(mem_id : MEM00013)이 기안한 결재 문서 중에 아직 처리 중인 문서들을 전부 보여줘.,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+INNER JOIN member_master AS mm
+ON am.draft_mem_id = mm.mem_id AND mm.mem_id = 'MEM00013' 
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC 
+LIMIT {offset}, {count}",appr_master,member_master,appr_proc,,
+검토완료,현재 휴직 중인 모든 직원의 한글 이름을 찾아줘.,"SELECT mm.mem_id, ml.value AS name, ml.emp_no, mm.email
+FROM member_master AS mm 
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = 'ko'
+WHERE mm.status_code = 'CMM0010002'
+AND mm.del_yn = 'N'",member_master,member_lang,,,
+검토완료,내가 결재해야 할 문서가 뭐가 있는지 알려줄래?,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+LEFT JOIN appr_proc AS ap 
+ON am.appr_id = ap.appr_id AND ap.proc_status_code = 'CGV0040002' 
+AND 
+(
+(ap.proc_div_code = 'CGV0020001' AND ap.member_id = {auth_mem_id})
+OR
+(ap.proc_div_code = 'CGV0020002' AND ap.org_code = {auth_org_code})
+)
+WHERE am.status_code IN ('CGV0010003', 'CGV0010004')
+ORDER BY am.date_created DESC",appr_master,appr_proc,,,
+검토완료,2023년에 입사한 직원들은 총 몇 명이야?,"SELECT COUNT(*) AS member_count
+FROM member_master AS mm
+WHERE LEFT(mm.ent_ymd, 4) = '2023'",member_master,,,,
+검토완료,보안등급이 대외비인 결재문서는 어떤 것들이 있어?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.src_type = 'PRV'
+AND adm.del_yn = 'N'
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN'
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,,,
+검토완료,결재 완료 시에 문서번호가 만들어지는 결재 양식은 뭐가 있을까?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.opt_no_type = 'CMPL'
+AND adm.del_yn = 'N'
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN' 
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,,,
+검토완료,오늘 생일 누가 있어?,"SELECT mm.mem_id, mm.emp_no, ml.value AS name
+FROM member_master mm
+INNER JOIN member_lang ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE mm.birth_ymd = DATE_FORMAT(NOW(), '%Y%m%d') AND mm.status_code = 'CMM0010001'",member_master,member_lang,,,
+검토완료,최근 한 달 동안 가장 많이 승인 처리한 사람은 누구야?,"SELECT mm.mem_id, mm.emp_no, ml.value AS name, sub_tb.total_count
+FROM member_master AS mm
+INNER JOIN (
+SELECT am.rl_mem_id, COUNT(*) AS total_count
+FROM appr_proc AS ap
+WHERE ap.proc_action_date >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+AND ap.proc_action_code IN ('CGV0050004')
+GROUP BY am.rl_mem_id
+ORDER BY am.total_count DESC
+LIMIT 0, 1
+) AS sub_tb
+ON mm.mem_id = sub_tb.rl_mem_id
+INNER JOIN member_lang AS ml
+ON ml.mem_id = mm.mem_id AND ml.type = 'T01' AND ml.lang = {lang}",appr_proc,member_master,member_lang,,
+검토완료,평균 결재 소요 시간을 알려줘.,"SELECT AVG(DATEDIFF(am.fnl_date, am.drft_date)) AS avg_days
+FROM appr_master AS am
+WHERE am.status_code IN ('CGV0010005', 'CGV0010006')
+AND am.drft_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)",appr_master,,,,
+검토완료,상신일과 최종처리일자로 결재 평균 소요시간을 계산해줘,"SELECT AVG(DATEDIFF(am.fnl_date, am.drft_date)) AS avg_days
+FROM appr_master AS am
+WHERE am.status_code IN ('CGV0010005', 'CGV0010006')
+AND am.drft_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)",appr_master,,,,
+검토완료,홍길동의 한글 이름과 영문 부서명을 알고 싶어,"SELECT ml.mem_id, 
+(
+SELECT tmp.value
+FROM member_lang tmp
+WHERE tmp.mem_id ml.mem_id
+AND tmp.type = 'T01'
+AND tmp.lang = 'ko'
+) AS name,
+ol.value AS department_name
+FROM member_lang AS ml 
+INNER JOIN org_member_rel AS omr 
+ON ml.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+LEFT OUTER JOIN org_lang AS ol
+ON omr.org_code = ol.org_code AND ol.type ='T01' AND ol.lang = 'zh'
+WHERE ml.value = '홍길동' AND ml.type = 'T01' AND ml.lang = {lang}",member_lang,org_member_rel,org_lang,,
+검토완료,홍길동(mem_id : MEM00022)의 한글 이름과 영문 부서명을 알고 싶어,"SELECT mm.mem_id, 
+(
+SELECT tmp.value
+FROM member_lang tmp
+WHERE tmp.mem_id ml.mem_id
+AND tmp.type = 'T01'
+AND tmp.lang = 'ko'
+) AS name,
+ol.value AS department_name
+FROM member_master AS mm
+INNER JOIN org_member_rel AS omr 
+ON mm.mem_id = omr.mem_id AND omr.priority = 1 AND omr.use_yn = 'Y' 
+LEFT OUTER JOIN org_lang AS ol
+ON omr.org_code = ol.org_code AND ol.type ='T01' AND ol.lang = 'zh'
+WHERE mm.mem_id = 'MEM00022'",member_lang,org_member_rel,org_lang,member_master,
+검토완료,기획팀에서만 사용할 수 있는 결재 양식은 무엇이 있나요?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.del_yn = 'N'
+AND adm.adocs_code IN 
+(
+SELECT tmp1.adocs_code
+FROM org_lang AS tmp1
+INNER JOIN appr_docs_target_rel AS tmp2
+ON tmp1.org_code = tmp2.rel_id AND tmp2.rel_type = 'O'
+WHERE tmp1.value = '기획팀' AND tmp1.type = 'T01' AND tmp1.lang = {lang}
+)
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN' 
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,org_lang,appr_docs_target_rel,
+검토완료,기획팀(org_code : ORG0018)에서만 사용할 수 있는 결재 양식은 무엇이 있나요?,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.del_yn = 'N'
+AND adm.adocs_code IN 
+(
+SELECT tmp.adocs_code
+FROM appr_docs_target_rel AS tmp
+WHERE tmp.rel_id = 'ORG0018' AND tmp.rel_type = 'O'
+)
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN' 
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,appr_docs_target_rel,,
+검토완료,홍길동이 올린 모든 결재 문서를 알려줘,"SELECT am.appr_id, am.title, mm.mem_id, mm.emp_no, ml.email, ml.value AS name
+FROM member_lang AS ml
+INNER JOIN member_master AS mm
+ON mm.mem_id = ml.mem_id AND mm.status_code = 'CMM0010001'
+INNER JOIN appr_master AS am
+ON am.drft_mem_id = mm.mem_id AND am.del_yn = 'N'
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+WHERE ml.value = '홍길동' AND ml.type = 'T01' AND ml.lang = {lang}
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,member_master,member_lang,
+검토완료,홍길동(mem_id: MEM00033)가 올린 모든 결재 문서를 알려줘,"SELECT am.appr_id, am.title, mm.mem_id, mm.emp_no, ml.email, ml.value AS name
+FROM member_master AS mm
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+INNER JOIN appr_master AS am
+ON am.drft_mem_id = ml.mem_id AND am.del_yn = 'N'
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+WHERE mm.mem_id = 'MEM00033'
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,member_master,member_lang,
+검토완료,임직원이 없는 부서가 있는지 확인해줘.,"SELECT om.org_code, ol.value AS org_name
+FROM org_master AS om
+INNER JOIN org_lang AS ol
+ON om.org_code = ol.org_code AND ol.type = 'T01' AND ol.lang = {lang}
+WHERE om.org_code NOT IN (
+SELECT omr.org_code
+FROM org_member_rel AS omr
+WHERE omr.use_yn = 'N'
+GROUP BY omr.org_code
+)",org_master,org_lang,org_member_rel,,
+검토완료,"결재가 반려된 문서들 중에서, 반려 처리한 결재자의 이름을 알고 싶어.","SELECT am.appr_id, am.title, am.fnl_mem_id, ml.value AS fnl_name
+FROM appr_master AS am
+INNER JOIN member_lang AS ml
+ON am.fnl_mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE am.status_code IN ('CGV0010007', 'CGV0010008')
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+AND ap.proc_type_code IN ('CGV0030001', 'CGV0030002', 'CGV0030003', 'CGV0030004', 'CGV0030007')
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_master,appr_proc,memeber_lang,,
+검토완료,최욱현의 담당업무는 뭐야?,"SELECT mm.mem_id, mm.emp_no, ml.value AS name, mm.incharge_task
+FROM member_lang AS ml
+INNER JOIN member_master AS mm
+ON ml.mem_id = mm.mem_id AND mm.status_code = 'CMM0010001'
+WHERE ml.value = '최욱현' AND ml.type = 'T01' AND ml.lang = {lang}",member_master,member_lang,,,
+검토완료,최욱현(emp_no : EMP007)의 담당업무는 뭐야?,"SELECT mm.mem_id, mm.emp_no, ml.value AS name, mm.incharge_task
+FROM member_master AS mm
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE mm.emp_no = 'EMP007'",member_master,member_lang,,,
+검토완료,사원번호 EMP007 담당업무는 무엇인가요?,"SELECT mm.mem_id, mm.emp_no, ml.value AS name, mm.incharge_task
+FROM member_master AS mm
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE mm.emp_no = 'EMP007'",member_master,member_lang,,,
+검토완료,코드 그룹 GMM004이 뭐야?,"SELECT cg.grp_code, cl.value AS grp_name
+FROM code_group AS cg
+INNER JOIN code_lang AS cl
+ON cl.code_lng_id = cg.grp_code AND cl.type = 'T01' AND cl.lang = {lang}
+WHERE cg.grp_code = 'GMM004'",code_lang,code_group,,,
+검토완료,코드 그룹 GMM004의 영어 명칭은 뭐야?,"SELECT cg.grp_code, cl.value AS grp_name
+FROM code_group AS cg
+INNER JOIN code_lang AS cl
+ON cl.code_lng_id = cg.grp_code AND cl.type = 'T01' AND cl.lang = 'en'
+WHERE cg.grp_code = 'GMM004'",code_lang,code_group,,,
+검토완료,모든 결재문서 카테고리를 알려줘,"SELECT adc.adocs_code, adl.value AS adocs_name
+FROM appr_docs_catg AS adc
+INNER JOIN appr_docs_lang AS adl
+ON adc.adocs_code = adl.adocs_lng_id AND adl.type = 'T01' AND adl.lang = {lang}
+WHERE adc.del_yn = 'N'
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN'
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adc.use_yn = 'Y'
+)
+ORDER BY adc.disp_ord",appr_docs_catg,appr_docs_lang,,,
+검토완료,모든 결재문서 카테고리를 한국어로 보여줘,"SELECT adc.adocs_code, adl.value AS adocs_name
+FROM appr_docs_catg AS adc
+INNER JOIN appr_docs_lang AS adl
+ON adc.adocs_code = adl.adocs_lng_id AND adl.type = 'T01' AND adl.lang = 'ko'
+WHERE adc.del_yn = 'N'
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN'
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adc.use_yn = 'Y'
+)
+ORDER BY adc.disp_ord",appr_docs_catg,appr_docs_lang,,,
+검토완료,성이 이씨인 모든 직원을 찾아줘,"SELECT mm.mem_id, mm.emp_no, ml.value AS name
+FROM member_lang AS ml
+INNER JOIN member_master AS mm
+ON ml.mem_id = mm.mem_id AND mm.status_code = 'CMM0010001'
+WHERE ml.value LIKE '이%' AND ml.type = 'T01' AND ml.lang = {lang}",member_master,member_lang,,,
+검토완료,임시저장 상태인 결재 문서가 총 몇 개인지 알려줘.,"SELECT COUNT(*)
+FROM appr_master AS am
+WHERE am.status_code = 'CGV0010001'
+AND 
+( 
+am.creator = {auth_mem_id}
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)",appr_master,,,,
+검토완료,최상위 부서는 어디야?,"SELECT om.org_code, ol.value AS org_name
+FROM org_master AS om
+INNER JOIN org_lang AS ol
+ON om.org_code = ol.org_code AND ol.type = 'T01' AND ol.lang = {lang}
+WHERE om.del_yn = 'N' AND om.use_yn = 'Y' AND om.org_type = 'D'
+AND om.up_org_code IN (
+SELECT tmp.org_code
+FROM org_master AS tmp
+WHERE tmp.org_type = 'C'
+)
+ORDER BY om.disp_ord",org_master,org_lang,,,
+검토완료,결재선 변경이 불가능한 결재 양식은 어떤 것들이 있는지 알려줘,"SELECT adm.adocs_code, 
+adl.value AS adocs_name
+FROM appr_docs_master AS adm
+INNER JOIN appr_docs_lang AS adl
+ON adm.adocs_code = adl.adocs_lng_id AND type = 'T11' AND adl.lang = {lang}
+WHERE adm.opt_line_mod_yn= 'N'
+AND adm.del_yn = 'N'
+AND 
+(
+{ROLE_CODE} = 'ROLE_ADMIN' 
+OR 
+{ROLE_CODE} != 'ROLE_ADMIN' AND adm.use_yn = 'Y'
+)",appr_docs_master,appr_docs_lang,,,
+검토완료,아직 퇴사일이 정해지지 않은 모든 직원의 수를 세어줘.,"SELECT COUNT(*) AS total_count
+FROM member_master AS mm
+WHERE mm.status_code = 'CMM0010001'
+OR (mm.status_code = 'CMM0010003' AND (mm.leave_date IS NULL OR LENGTH(mm.leave_date) = 0))",member_master,,,,
+검토완료,총 직원수가 몇명이야?,"SELECT COUNT(*) AS total_count
+FROM member_master AS mm
+WHERE mm.status_code = 'CMM0010001'
+OR (mm.status_code = 'CMM0010003' AND (mm.leave_date IS NULL OR LENGTH(mm.leave_date) = 0))",member_master,,,,
+검토완료,대신결재한 결재문서 보여줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+WHERE am.del_yn = 'N'
+AND EXISTS (
+SELECT 1
+FROM appr_proc AS tmp
+WHERE tmp.appr_id = am.appr_id 
+AND tmp.inst_yn = 'Y'
+)
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_proc,appr_master,,,
+검토완료,대결 진행한 결재목록 보여줘,"SELECT am.appr_id, am.title
+FROM appr_master AS am
+WHERE am.del_yn = 'N'
+AND EXISTS (
+SELECT 1
+FROM appr_proc AS tmp
+WHERE tmp.appr_id = am.appr_id 
+AND tmp.inst_yn = 'Y'
+)
+AND 
+( 
+EXISTS (
+SELECT 1
+FROM appr_proc AS ap
+WHERE ap.appr_id = am.appr_id
+AND ap.mem_id = {auth_mem_id}
+)
+OR
+{ROLE_CODE} = 'ROLE_ADMIN'
+)
+ORDER BY am.date_created DESC
+LIMIT {offset}, {count}",appr_proc,appr_master,,,
+검토완료,두 개 이상의 부서에 소속된 직원이 있는지 찾아줘.,"SELECT mm.mem_id, ml.value AS name, mm.emp_no, mm.email
+FROM member_master AS mm
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE mm.mem_id IN (
+SELECT omr.mem_id
+FROM org_member_rel AS omr
+WHERE omr.use_yn = 'Y'
+GROUP BY omr.mem_id
+HAVING COUNT(*) >= 2
+)",member_master,member_lang,org_member_rel,,
+검토완료,겸직인 직원 목록 보여줘,"SELECT mm.mem_id, ml.value AS name, mm.emp_no, mm.email
+FROM member_master AS mm
+INNER JOIN member_lang AS ml
+ON mm.mem_id = ml.mem_id AND ml.type = 'T01' AND ml.lang = {lang}
+WHERE mm.mem_id IN (
+SELECT omr.mem_id
+FROM org_member_rel AS omr
+WHERE omr.use_yn = 'Y'
+GROUP BY omr.mem_id
+HAVING COUNT(*) >= 2
+)",member_master,member_lang,org_member_rel,,
