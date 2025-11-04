@@ -817,7 +817,7 @@ OR
 {ROLE_CODE} = 'ROLE_ADMIN'
 )
 ORDER BY am.date_created DESC
-LIMIT {offset}, {count}",appr_master,appr_proc,memeber_lang,,
+LIMIT {offset}, {count}",appr_master,appr_proc,member_lang,,
 검토완료,최욱현의 담당업무는 뭐야?,"SELECT mm.mem_id, mm.emp_no, ml.value AS name, mm.incharge_task
 FROM member_lang AS ml
 INNER JOIN member_master AS mm

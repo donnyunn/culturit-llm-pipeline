@@ -1,2 +1,5 @@
 logs/
 kobart_model_output/
+sql-lora-adapter/
+
+final_training_data.json

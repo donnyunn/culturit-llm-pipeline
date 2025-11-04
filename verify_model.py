@@ -1,132 +1,122 @@
+import argparse
 import torch
-import os
-from transformers import AutoTokenizer, BartForConditionalGeneration
-from datasets import Dataset
-import pandas as pd
-import psycopg2
-from sqlalchemy import create_engine
-import json
+from transformers import (
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    BitsAndBytesConfig
+)
+from peft import PeftModel
 
-# --- 1. 설정 및 경로 ---
-# 최종 학습 결과 모델이 저장된 경로 (train_model.py와 동일해야 합니다)
-MODEL_PATH = './kobart_model_output/final_model'
+# T4 GPU에서 추론을 위한 데이터 타입
+DTYPE = torch.float16 
 
-# 데이터베이스 연결 정보 (docker run 시 설정했던 값)
-DB_CONFIG = {
-    'DB_NAME': 'llm_schema_db',
-    'DB_USER': 'llm_user',
-    'DB_PASS': '1a2a3a4a',  # 설정한 비밀번호로 변경
-    'DB_HOST': '127.0.0.1', # VM 내부에서 docker container로 접근 (PostgreSQL 포트)
-    'DB_PORT': '5432'
-}
-
-# 최종 학습 데이터셋 파일
-DATA_PATH = './final_training_data.json'
-
-# --- 2. DB 연결 및 실행 함수 ---
-def execute_sql(sql_query):
-    """PostgreSQL 데이터베이스에 접속하여 SQL 쿼리를 실행합니다."""
-    conn = None
+def read_file_content(filepath):
+    """파일 내용을 읽어 문자열로 반환합니다."""
     try:
-        # SQLAlchemy 엔진을 사용하여 연결 (Pandas read_sql 사용 목적)
-        engine = create_engine(
-            f"postgresql+psycopg2://{DB_CONFIG['DB_USER']}:{DB_CONFIG['DB_PASS']}@{DB_CONFIG['DB_HOST']}:{DB_CONFIG['DB_PORT']}/{DB_CONFIG['DB_NAME']}"
-        )
-        
-        # SQL 쿼리를 실행하고 결과를 DataFrame으로 받음
-        df_result = pd.read_sql(sql_query, engine)
-        
-        return df_result.to_string(index=False, header=True)
-        
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"오류: {filepath} 파일을 찾을 수 없습니다.")
+        exit(1)
     except Exception as e:
-        return f"❌ SQL 실행 오류: {e}"
-    finally:
-        if conn:
-            conn.close()
+        print(f"오류: {filepath} 파일 읽기 실패 - {e}")
+        exit(1)
 
-# --- 3. 모델 추론 함수 ---
-def generate_sql(model, tokenizer, question, schema_encoding):
-    """질문과 스키마를 입력으로 받아 SQL 쿼리를 생성합니다."""
-    # 모델 입력 형식: 질문 [SEP] 스키마
-    input_text = f"{question} [SEP] {schema_encoding}"
+def generate_sql(args):
+    """
+    학습된 LoRA 어댑터를 로드하고 질문에 대한 SQL을 생성합니다.
+    """
     
-    # 토큰화
+    # 1. 8-bit 양자화 설정
+    bnb_config = BitsAndBytesConfig(
+        load_in_8bit=True
+    )
+    
+    # 2. 토크나이저 로드 (학습 시 저장한 어댑터 폴더에서)
+    print(f"토크나이저 로드 중: {args.adapter_dir}")
+    tokenizer = AutoTokenizer.from_pretrained(args.adapter_dir)
+
+    # 3. 기본 모델 로드 (8-bit)
+    print(f"기본 모델 로드 중 (8-bit): {args.base_model}")
+    base_model = AutoModelForSeq2SeqLM.from_pretrained(
+        args.base_model,
+        quantization_config=bnb_config,
+        dtype=DTYPE,
+        device_map="auto",
+    )
+
+    # 4. LoRA 어댑터 적용
+    print(f"LoRA 어댑터 로드 중: {args.adapter_dir}")
+    model = PeftModel.from_pretrained(base_model, args.adapter_dir)
+    model.eval() # 추론 모드로 설정
+    
+    print("\n[ 모델 로드 완료 ]")
+
+    # 5. 스키마 및 질문으로 프롬프트 구성
+    # 모델은 학습 때와 '똑같은' 형식의 입력을 받아야 합니다.
+    # schema.sql 파일 전체와 질문을 조합합니다.
+    schema_content = read_file_content(args.schema_file)
+    
+    prefix = "SQL 쿼리 생성: " # 학습 때 사용한 접두사
+    input_text = (
+        f"{prefix}### Schema:\n{schema_content}\n\n"
+        f"### Question:\n{args.question}"
+    )
+
+    print("-" * 30)
+    print(f"입력 질문: {args.question}")
+    print(f"사용 스키마: {args.schema_file}")
+    print("-" * 30)
+
+    # 6. 입력 토큰화
+    # T4의 VRAM에 맞게 입력을 잘라냅니다 (train_model.py의 max_seq_length와 동일하게)
     inputs = tokenizer(
         input_text, 
         return_tensors="pt", 
-        max_length=1024, 
-        truncation=True,
-        padding="max_length"
-    ).to(model.device)
+        truncation=True, 
+        max_length=args.max_seq_length
+    ).to("cuda") # T4 GPU로 이동
 
-    # SQL 생성 (추론)
+    # 7. SQL 생성 (추론)
+    # torch.no_grad()로 불필요한 그래디언트 계산을 방지하여 VRAM 절약
     with torch.no_grad():
         outputs = model.generate(
-            inputs.input_ids,
-            max_length=1024,
-            num_beams=4,
-            early_stopping=True
+            **inputs,
+            max_length=512,  # 생성할 SQL의 최대 길이
+            num_beams=5,     # 빔 서치 (더 나은 결과)
+            early_stopping=True,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id
         )
 
-    # 토큰을 SQL 텍스트로 디코딩
+    # 8. 결과 디코딩 및 출력
     generated_sql = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    print("\n[ 생성된 SQL ]")
+    print("=" * 30)
+    print(generated_sql)
+    print("=" * 30)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="학습된 Text-to-SQL LoRA 어댑터를 테스트합니다.")
     
-    return generated_sql
-
-# --- 4. 메인 검증 로직 ---
-if __name__ == '__main__':
-    print("=========================================")
-    print("🤖 Text to SQL 모델 검증 시작 🤖")
-    print("=========================================")
+    # 필수 인자
+    parser.add_argument("--question", type=str, required=True, 
+                        help="모델에게 물어볼 자연어 질문 (예: '개발팀 직원 알려줘')")
+    parser.add_argument("--schema_file", type=str, required=True, 
+                        help="질문의 문맥이 되는 schema.sql 파일 경로")
     
-    # 0. GPU 설정
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
+    # 선택 인자 (기본값)
+    parser.add_argument("--adapter_dir", type=str, default="./sql-lora-adapter",
+                        help="학습된 LoRA 어댑터가 저장된 디렉토리")
+    parser.add_argument("--base_model", type=str, default="paust/pko-t5-base",
+                        help="학습에 사용된 기본 T5 모델")
+    parser.add_argument("--max_seq_length", type=int, default=1536, 
+                        help="입력 시퀀스 최대 길이 (학습 시 설정과 동일해야 함)")
 
-    # 1. 모델 로드
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-        # AutoModelForSeq2SeqLM 대신 BartForConditionalGeneration 사용
-        model = BartForConditionalGeneration.from_pretrained(MODEL_PATH).to(device)
-        print(f"✅ Model loaded successfully from {MODEL_PATH}")
-    except Exception as e:
-        print(f"❌ 모델 로드 실패: {e}")
-        exit()
+    args = parser.parse_args()
+    generate_sql(args)
 
-    # 2. 데이터셋에서 테스트 질문 및 스키마 로드
-    try:
-        # final_training_data.json 파일에서 전체 데이터를 로드
-        df = pd.read_json(DATA_PATH, lines=True)
-        schema_encoding = df['SCHEMA_ENCODING'].iloc[0] # 모든 행의 스키마는 동일
-        print(f"✅ Data and Schema loaded. Total {len(df)} test cases.")
-    except Exception as e:
-        print(f"❌ 데이터 로드 실패: {e}. 경로를 확인하세요.")
-        exit()
-
-    # 3. 테스트 케이스 정의 (상위 5개 및 특정 케이스)
-    test_cases = [
-        ("총 직원수가 몇명이야?"), # 단순 COUNT
-        ("개발팀(org_code : OC001) 소속 직원의 이름과 이메일을 알려줘."), # JOIN 및 WHERE 조건
-        ("홍길동(mem_id : MEM00019)의 직책은 뭐야?"), # 코드 테이블 JOIN
-        ("지난 번에 반려된 결재 문서를 찾아줘."), # 결재 상태 코드 조건
-        ("두 개 이상의 부서에 소속된 직원이 있는지 찾아줘."), # Subquery 또는 HAVING
-    ]
-
-    print("\n=========================================")
-    print("📊 SQL 생성 및 DB 실행 결과")
-    print("=========================================")
-
-    for i, question in enumerate(test_cases):
-        print(f"\n--- TEST CASE {i+1} ---")
-        print(f"Q: {question}")
-        
-        # 3.1 SQL 생성 (추론)
-        generated_sql = generate_sql(model, tokenizer, question, schema_encoding)
-        print(f"A: [Generated SQL]\n {generated_sql}")
-        
-        # 3.2 DB 실행
-        if generated_sql.upper().startswith("SELECT"):
-            result_df = execute_sql(generated_sql)
-            print(f"R: [DB Result]\n{result_df}")
-        else:
-            print("R: [DB Result] 유효하지 않은 SQL 형식입니다.")
+if __name__ == "__main__":
+    main()
