@@ -1,6 +1,5 @@
 import argparse
 import os
-import re # <-- 정규식 라이브러리 임포트
 import torch
 from datasets import load_dataset
 from transformers import (
@@ -9,59 +8,39 @@ from transformers import (
     TrainingArguments,
     Trainer,
     DataCollatorForSeq2Seq,
-    BitsAndBytesConfig
+    BitsAndBytesConfig  # v1의 경고를 해결한 8-bit 로더
 )
 from peft import get_peft_model, LoraConfig, TaskType
 
+from google.cloud import storage
+import datetime
+
+# --- GCS 설정 ---
+GCS_BUCKET_NAME = "text2sql-pipeline-bucket" # ⬅️ 2단계에서 만드신 버킷 이름
+GCS_JSON_PATH = "datasets/final_training_data.json" # ⬅️ 다운로드할 JSON 경로
+LOCAL_JSON_PATH = "./downloaded_training_data.json" # ⬅️ 로컬에 저장할 이름
+# ----------------
+
+# T4 GPU용 float16
 DTYPE = torch.float16
 
-# --- (추가 1) verify_model.py에서 파일 읽기 함수 가져오기 ---
-def read_file_content(filepath):
-    """파일 내용을 읽어 문자열로 반환합니다."""
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
-        print(f"오류: {filepath} 파일을 찾을 수 없습니다.")
-        exit(1)
-    except Exception as e:
-        print(f"오류: {filepath} 파일 읽기 실패 - {e}")
-        exit(1)
-
-# --- (수정 1) 전처리 함수 수정 ---
-def preprocess_function(examples, tokenizer, max_seq_length, full_schema_str, prefix="SQL 쿼리 생성: "):
+def preprocess_function(examples, tokenizer, max_seq_length, prefix="SQL 쿼리 생성: "):
     """
-    'instruction'에서 질문만 추출하고, '전체 스키마'와 결합하여 프롬프트를 재구성합니다.
+    데이터셋을 T5 모델 입력 형식에 맞게 전처리합니다. (v2 방식)
+    'instruction' 필드를 그대로 사용합니다.
     """
-    inputs = []
-    targets = []
-    
-    question_pattern = re.compile(r"### Question:\n(.*?)$", re.DOTALL)
-
-    for instruction in examples["instruction"]:
-        # instruction에서 '### Question:' 뒷부분(질문)만 추출
-        match = question_pattern.search(instruction)
-        if match:
-            question = match.group(1).strip()
-            # (핵심) 전체 스키마와 질문을 결합해 새로운 입력 생성
-            new_input_text = (
-                f"{prefix}### Schema:\n{full_schema_str}\n\n"
-                f"### Question:\n{question}"
-            )
-            inputs.append(new_input_text)
-        else:
-            # 패턴을 못찾으면 일단 비워둠 (오류 방지)
-            inputs.append(prefix) 
-    
+    inputs = [prefix + doc for doc in examples["instruction"]]
     targets = [doc for doc in examples["response"]]
 
+    # 입력 토큰화
     model_inputs = tokenizer(
         inputs, 
         max_length=max_seq_length, 
-        truncation=True, 
+        truncation=True,  # max_seq_length를 초과하면 잘라냅니다 (Killed 방지)
         padding=False
     )
 
+    # v1의 경고를 해결한 레이블 토큰화 방식
     labels = tokenizer(
         text_target=targets, 
         max_length=512, 
@@ -72,58 +51,89 @@ def preprocess_function(examples, tokenizer, max_seq_length, full_schema_str, pr
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
 
-# --- (수정 2) train 함수 수정 ---
+# --- (신규) GCS 어댑터 업로드 헬퍼 함수 ---
+def upload_directory_to_gcs(local_directory, gcs_bucket, gcs_destination_prefix):
+    """로컬 디렉토리 전체를 GCS로 업로드합니다."""
+    try:
+        print(f"--- GCS로 어댑터 업로드 시작: {local_directory} -> gs://{gcs_bucket.name}/{gcs_destination_prefix} ---")
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(gcs_bucket.name) # 버킷 이름으로 객체 다시 가져오기
+        
+        for root, dirs, files in os.walk(local_directory):
+            for filename in files:
+                local_path = os.path.join(root, filename)
+                
+                # GCS 내의 상대 경로 계산
+                relative_path = os.path.relpath(local_path, local_directory)
+                gcs_path = os.path.join(gcs_destination_prefix, relative_path)
+                
+                blob = bucket.blob(gcs_path)
+                blob.upload_from_filename(local_path)
+                print(f"Uploaded {local_path} to {gcs_path}")
+                
+        print("--- GCS 어댑터 업로드 완료 ---")
+    except Exception as e:
+        print(f"--- ❌ GCS 어댑터 업로드 실패: {e} ---")
+
 def train(args):
     """
     모델 학습을 수행하는 메인 함수
     """
+    
+    # --- (수정 1) GCS 클라이언트와 버킷을 함수 상단에서 정의 ---
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(GCS_BUCKET_NAME)
+    except Exception as e:
+        print(f"--- ❌ GCS 클라이언트 초기화 실패: {e} ---")
+        return
+    # ---------------------------------------------------
 
-    # --- (추가 2) 전체 스키마 파일 미리 읽어오기 ---
-    print(f"전체 스키마 로드 중: {args.schema_file}")
-    FULL_SCHEMA = read_file_content(args.schema_file)
-    # ----------------------------------------------
+    # --- 1. GCS에서 훈련 데이터 다운로드 ---
+    try:
+        print(f"--- GCS에서 훈련 데이터 다운로드: {GCS_JSON_PATH} ---")
+        blob = bucket.blob(GCS_JSON_PATH)
+        blob.download_to_filename(LOCAL_JSON_PATH)
+        print(f"--- 다운로드 완료: {LOCAL_JSON_PATH} ---")
+    except Exception as e:
+        print(f"--- ❌ GCS 다운로드 실패: {e} ---")
+        print("--- 훈련을 계속할 수 없습니다. ---")
+        return
+    # ----------------------------------------
 
     print(f"토크나이저 로드 중: {args.model_name}")
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-    print(f"데이터셋 로드 중: {args.train_file}")
-    dataset = load_dataset("json", data_files=args.train_file, split="train")
+    # --- (수정 2) 'args.train_file' 대신 다운로드한 'LOCAL_JSON_PATH' 사용 ---
+    print(f"데이터셋 로드 중: {LOCAL_JSON_PATH}")
+    dataset = load_dataset("json", data_files=LOCAL_JSON_PATH, split="train")
+    # -----------------------------------------------------------------
+    
     dataset = dataset.shuffle(seed=42)
 
-    print("데이터셋 전처리 중 (전체 스키마 적용)...")
+    print("데이터셋 전처리 중...")
     tokenized_dataset = dataset.map(
         preprocess_function,
         batched=True,
-        # (핵심) full_schema_str 인자를 fn_kwargs로 넘겨줌
-        fn_kwargs={
-            "tokenizer": tokenizer, 
-            "max_seq_length": args.max_seq_length,
-            "full_schema_str": FULL_SCHEMA # <-- 스키마 전달
-        },
+        fn_kwargs={"tokenizer": tokenizer, "max_seq_length": args.max_seq_length},
         remove_columns=dataset.column_names,
     )
     print(f"전처리 완료. 총 샘플 수: {len(tokenized_dataset)}")
 
-    bnb_config = BitsAndBytesConfig(load_in_8bit=True)
-
-    print(f"기본 모델 로드 중 (8-bit 양자화): {args.model_name}")
+    # ... (bnb_config, model, lora_config, training_args, data_collator, trainer... 로직은 동일) ...
+    bnb_config = BitsAndBytesConfig(
+        load_in_8bit=True
+    )
     model = AutoModelForSeq2SeqLM.from_pretrained(
         args.model_name,
         quantization_config=bnb_config,
         dtype=DTYPE,
         device_map="auto",
     )
-
     lora_config = LoraConfig(
-        r=16,
-        lora_alpha=32,
-        target_modules=["q", "v"],
-        lora_dropout=0.05,
-        bias="none",
-        task_type=TaskType.SEQ_2_SEQ_LM
+        r=16, lora_alpha=32, target_modules=["q", "v"],
+        lora_dropout=0.05, bias="none", task_type=TaskType.SEQ_2_SEQ_LM
     )
-
-    print("LoRA 적용 중...")
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
@@ -141,19 +151,18 @@ def train(args):
         report_to="none", 
         dataloader_num_workers=0 
     )
-
     data_collator = DataCollatorForSeq2Seq(
         tokenizer,
         model=model,
         pad_to_multiple_of=8
     )
-
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=tokenized_dataset,
         data_collator=data_collator,
     )
+
 
     print("--- 모델 학습 시작 ---")
     trainer.train()
@@ -163,17 +172,17 @@ def train(args):
     model.save_pretrained(args.output_dir)
     tokenizer.save_pretrained(args.output_dir)
 
-# --- (수정 3) main 함수 수정 ---
+    # --- 2. GCS로 학습된 어댑터 업로드 ---
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    gcs_adapter_path = f"adapters/adapter-{timestamp}"
+    
+    # (수정 1에서 정의한 'bucket' 변수를 여기서 사용)
+    upload_directory_to_gcs(args.output_dir, bucket, gcs_adapter_path)
+    # -----------------------------------------
+
 def main():
-    parser = argparse.ArgumentParser(description="T5 Text-to-SQL 모델을 LoRA로 미세 조정합니다.")
-    
-    # --- (추가 3) schema_file 인자 추가 ---
-    parser.add_argument("--schema_file", type=str, required=True, 
-                        help="전체 schema.sql 파일 경로")
-    # -------------------------------------
-    
-    parser.add_argument("--train_file", type=str, required=True, 
-                        help="학습용 JSONL 파일 경로 (e.g., final_training_data.json)")
+    parser = argparse.ArgumentParser(description="T5 Text-to-SQL 모델 (GCS 연동)")
+    # --train_file 인자 제거됨
     
     parser.add_argument("--model_name", type=str, default="paust/pko-t5-base", 
                         help="기본 T5 모델 (Hugging Face Hub)")
@@ -187,11 +196,13 @@ def main():
                         help="Gradient accumulation steps (실질 배치 크기 = batch_size * grad_accum)")
     parser.add_argument("--lr", type=float, default=2e-4, 
                         help="학습률 (LoRA는 일반 fine-tuning보다 높게 설정)")
-    parser.add_argument("--max_seq_length", type=int, default=1536, # <-- 1536으로 다시 시도
+    parser.add_argument("--max_seq_length", type=int, default=1024, # <-- 1536으로 다시 시도
                         help="최대 입력 시퀀스 길이 (스키마+질문). T4 VRAM에 따라 조절 필요.")
 
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
+    
+    # train 함수가 args를 받도록 수정했다면 train(args) 호출
     train(args)
 
 if __name__ == "__main__":
